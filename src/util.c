@@ -1,39 +1,48 @@
-#if defined(__unix__)
-	#include <unistd.h>
-	#include <errno.h>
-#endif
-
 #include "util.h"
-#if defined(_WINDOWS)
 
-int32_t sys_close(int32_t pid) {
-	return closesocket (fd) == 0 ? 0 : -1;
+#if defined(_WINDOWS)
+#ifndef WIN32_LEAN_AND_MEAN
+	#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef _WIN32_WINNT
+  #define _WIN32_WINNT 0x501
+#endif
+#ifndef _CRT_SECURE_NO_WARNINGS
+  #define _CRT_SECURE_NO_WARNINGS
+#endif
+#include <winsock2.h>
+
+
+int32_t sys_close(int32_t fd) {
+  return closesocket (fd) == 0 ? 0 : -1;
 }
 
 #elif defined(__unix__)
+#include <unistd.h>
+#include <errno.h>
 
-int32_t sys_close(int32_t pid) {
-	#if defined(EINTR) &&  defined(hpux) || defined(__hpux)
-	int32_t res, err_code;
+int32_t sys_close(int32_t fd) {
+  #if defined(EINTR) && defined(hpux) || defined(__hpux)
+  int32_t res, err_code;
 
-	for (;;) {
-		res = close(fd);
+  for (;;) {
+    res = close(fd);
 
-		if (LIKELY(res == 0)) {
-			return 0;
-		}
+    if (LIKELY(res == 0)) {
+      return 0;
+    }
 
-		err_code = p_error_get_last_system();
+    err_code = error_get_last_system();
 
-		if (err_code == EINTR) {
-			continue;
-		} else {
-			return -1;
-		}
-	}
-	#else
-		return close(fd);
-	#endif
+    if (err_code == EINTR) {
+      continue;
+    } else {
+      return -1;
+    }
+  }
+  #else
+    return close(fd);
+  #endif
 }
 
 #elif defined(__APPLE__)
@@ -80,28 +89,28 @@ int32_t sys_close(int32_t pid) {
 /* If the non-cancelable variants of all system calls have already been chosen,
  * do nothing. */
 #if !__DARWIN_NON_CANCELABLE
-	#if __DARWIN_UNIX03 && !__DARWIN_ONLY_UNIX_CONFORMANCE
-	/* When there's a choice between UNIX2003 and pre-UNIX2003 and UNIX2003 has
-	 * been chosen. */
+  #if __DARWIN_UNIX03 && !__DARWIN_ONLY_UNIX_CONFORMANCE
+		/* When there's a choice between UNIX2003 and pre-UNIX2003 and UNIX2003 has
+		 * been chosen. */
 		extern int close$NOCANCEL$UNIX2003 (int fd);
-		#define SYS_CLOSE_INTERFACE close$NOCANCEL$UNIX2003
-	#elif !__DARWIN_UNIX03 && !__DARWIN_ONLY_UNIX_CONFORMANCE
-	/* When there's a choice between UNIX2003 and pre-UNIX2003 and pre-UNIX2003
-	 * has been chosen. There's no close$NOCANCEL symbol in this case, so use
-	 * close$NOCANCEL$UNIX2003 as the implementation. It does the same thing that
-	 * close$NOCANCEL would do. */
+    #define SYS_CLOSE_INTERFACE close$NOCANCEL$UNIX2003
+  #elif !__DARWIN_UNIX03 && !__DARWIN_ONLY_UNIX_CONFORMANCE
+		/* When there's a choice between UNIX2003 and pre-UNIX2003 and pre-UNIX2003
+		 * has been chosen. There's no close$NOCANCEL symbol in this case, so use
+		 * close$NOCANCEL$UNIX2003 as the implementation. It does the same thing that
+		 * close$NOCANCEL would do. */
 		extern int close$NOCANCEL$UNIX2003 (int fd);
-		#define SYS_CLOSE_INTERFACE close$NOCANCEL$UNIX2003
-	#else
-	/* When only UNIX2003 is supported. */
+    #define SYS_CLOSE_INTERFACE close$NOCANCEL$UNIX2003
+  #else
+		/* When only UNIX2003 is supported. */
 		extern int close$NOCANCEL (int fd);
-		#define SYS_CLOSE_INTERFACE close$NOCANCEL
-	#endif
+    #define SYS_CLOSE_INTERFACE close$NOCANCEL
+  #endif
 #endif
 
-int32_t sys_close(int32_t pid) {
-	return close(fd);
 
+int32_t sys_close(int32_t fd) {
+  return SYS_CLOSE_INTERFACE(fd);
 }
 
 #endif
@@ -112,4 +121,4 @@ int32_t sys_close(int32_t pid) {
 
 
 
-	
+  

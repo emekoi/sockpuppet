@@ -95,15 +95,19 @@ struct Socket {
 	#define SOCKET_DEFAULT_SEND_FLAGS 0
 #endif
 
-static bool _XX__socket_set_fd_blocking(int32_t fd, bool blocking);
-static bool _XX__socket_check(const Socket *socket);
-static bool _XX__socket_set_details_from_fd(Socket *socket);
+static bool private_socket_set_fd_blocking(int32_t fd, bool blocking);
+static bool private_socket_check(const Socket *socket);
+static bool private_socket_set_details_from_fd(Socket *socket);
 
-static bool _XX__socket_set_fd_blocking(int32_t fd, bool blocking) {
+static bool private_socket_set_fd_blocking(int32_t fd, bool blocking) {
 #ifndef _WINDOWS
   int32_t arg;
 #else
-  uint32_t arg;
+  #if 0
+	  uint32_t arg;
+  #else
+  	long unsigned  arg;
+  #endif
 #endif
 
 #ifndef _WINDOWS
@@ -118,8 +122,8 @@ static bool _XX__socket_set_fd_blocking(int32_t fd, bool blocking) {
 		#pragma __pointer_size 64
 	#endif
 	#else
-  if (UNLIKELY((arg = fcntl (fd, F_GETFL, NULL)) < 0)) {
-    ALERT_WARNING("Socket::_XX__socket_set_fd_blocking: fcntl() failed");
+  if (UNLIKELY((arg = fcntl(fd, F_GETFL, NULL)) < 0)) {
+    ALERT_WARNING("Socket::private_socket_set_fd_blocking: fcntl() failed");
     arg = 0;
   }
 
@@ -143,7 +147,7 @@ static bool _XX__socket_set_fd_blocking(int32_t fd, bool blocking) {
   return true;
 }
 
-static bool _XX__socket_check(const Socket *socket) {
+static bool private_socket_check(const Socket *socket) {
   if (UNLIKELY(socket->closed))  {
     error_set_error((int32_t)ERROR_IO_NOT_AVAILABLE, 0, "Socket is already closed");
     return false;
@@ -152,7 +156,7 @@ static bool _XX__socket_check(const Socket *socket) {
   return true;
 }
 
-static bool _XX__socket_set_details_from_fd(Socket *socket) {
+static bool private_socket_set_details_from_fd(Socket *socket) {
 #ifdef SO_DOMAIN
   SocketFamily family;
 #endif
@@ -283,7 +287,7 @@ static bool _XX__socket_set_details_from_fd(Socket *socket) {
      * actually a char on Windows, even if documentation claims it
      * to be a BOOL which is a typedef for int. */
     if (optlen != sizeof(bool_val))
-      ALERT_WARNING("Socket::_XX__socket_set_details_from_fd: getsockopt() with SO_KEEPALIVE failed");
+      ALERT_WARNING("Socket::private_socket_set_details_from_fd: getsockopt() with SO_KEEPALIVE failed");
 #endif
     socket->keepalive = !!bool_val;
   }  else
@@ -293,7 +297,7 @@ static bool _XX__socket_set_details_from_fd(Socket *socket) {
   return true;
 }
 
-bool socket_init_once(void) {
+bool socket_init_once() {
 #ifdef _WINDOWS
   WORD ver_req;
   WSADATA wsa_data;
@@ -316,7 +320,7 @@ bool socket_init_once(void) {
   return true;
 }
 
-void socket_close_once(void) {
+void socket_close_once() {
 #ifdef _WINDOWS
   WSACleanup();
 #endif
@@ -340,12 +344,12 @@ Socket *socket_new_from_fd(int32_t fd) {
 
   ret->fd = fd;
 
-  if (UNLIKELY(_XX__socket_set_details_from_fd(ret, error) == false)) {
+  if (UNLIKELY(private_socket_set_details_from_fd(ret) == false)) {
     free(ret);
     return NULL;
   }
 
-  if (UNLIKELY(_XX__socket_set_fd_blocking(ret->fd, false, error) == false)) {
+  if (UNLIKELY(private_socket_set_fd_blocking(ret->fd, false) == false)) {
     free(ret);
     return NULL;
   }
@@ -373,7 +377,7 @@ Socket *socket_new_from_fd(int32_t fd) {
 
 #ifdef _WINDOWS
   if (UNLIKELY((ret->events = WSACreateEvent()) == WSA_INVALID_EVENT)) {
-    error_set_error(error,
+    error_set_error(
       (int32_t)ERROR_IO_FAILED,
       (int32_t)error_get_last_net(),
       "Failed to call WSACreateEvent() on socket"
@@ -427,7 +431,7 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
 
 #ifdef P_OS_SCO
   if (UNLIKELY((ret->timer = time_profiler_new()) == NULL)) {
-    error_set_error(error, (int32_t)ERROR_IO_NO_RESOURCES, 0, "Failed to allocate memory for internal timer");
+    error_set_error((int32_t)ERROR_IO_NO_RESOURCES, 0, "Failed to allocate memory for internal timer");
     free (ret);
     return NULL;
   }
@@ -437,7 +441,7 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
   native_type |= SOCK_CLOEXEC;
 #endif
   if (UNLIKELY((fd = (int32_t)socket(family, native_type, protocol)) < 0)) {
-    error_set_error(error,
+    error_set_error(
       (int32_t)error_get_io_from_system(error_get_last_net()),
       (int32_t)error_get_last_net(),
       "Failed to call socket() to create socket"
@@ -455,7 +459,7 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
   if (LIKELY(flags != -1 && (flags & FD_CLOEXEC) == 0)) {
     flags |= FD_CLOEXEC;
 
-    if (UNLIKELY(fcntl (fd, F_SETFD, flags) < 0)) {
+    if (UNLIKELY(fcntl(fd, F_SETFD, flags) < 0)) {
       ALERT_WARNING("Socket::socket_new: fcntl() with FD_CLOEXEC failed");
     }
   }
@@ -467,7 +471,7 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
   ret->events = WSA_INVALID_EVENT;
 #endif
 
-  if (UNLIKELY(_XX__socket_set_fd_blocking(ret->fd, false, error) == false)) {
+  if (UNLIKELY(private_socket_set_fd_blocking(ret->fd, false) == false)) {
     socket_free (ret);
     return NULL;
   }
@@ -475,22 +479,22 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
 #if !defined(_WINDOWS) && defined(SO_NOSIGPIPE)
   flags = 1;
 
-  if (setsockopt (ret->fd, SOL_SOCKET, SO_NOSIGPIPE, &flags, sizeof(flags)) < 0) {
+  if (setsockopt(ret->fd, SOL_SOCKET, SO_NOSIGPIPE, &flags, sizeof(flags)) < 0) {
     ALERT_WARNING("Socket::socket_new: setsockopt() with SO_NOSIGPIPE failed");
   }
 #endif
 
-  ret->timeout  = 0;
+  ret->timeout = 0;
   ret->blocking = true;
-  ret->family   = family;
+  ret->family = family;
   ret->protocol = protocol;
-  ret->type     = type;
+  ret->type = type;
 
-  socket_set_listen_backlog (ret, SOCKET_DEFAULT_BACKLOG);
+  socket_set_listen_backlog(ret, SOCKET_DEFAULT_BACKLOG);
 
 #ifdef _WINDOWS
   if (UNLIKELY((ret->events = WSACreateEvent()) == WSA_INVALID_EVENT)) {
-    error_set_error(error,
+    error_set_error(
       (int32_t)ERROR_IO_FAILED,
       (int32_t)error_get_last_net(),
       "Failed to call WSACreateEvent() on socket"
@@ -503,85 +507,74 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
   return ret;
 }
 
-int32_t
-socket_get_fd (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+int32_t socket_get_fd(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return -1;
+  }
 
   return socket->fd;
 }
 
-SocketFamily
-socket_get_family (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+SocketFamily socket_get_family(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return SOCKET_FAMILY_UNKNOWN;
+  }
 
   return socket->family;
 }
 
-SocketType
-socket_get_type (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+SocketType socket_get_type(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return SOCKET_TYPE_UNKNOWN;
+  }
 
   return socket->type;
 }
 
-SocketProtocol
-socket_get_protocol (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+SocketProtocol socket_get_protocol(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return SOCKET_PROTOCOL_UNKNOWN;
+  }
 
   return socket->protocol;
 }
 
-bool
-socket_get_keepalive (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+bool socket_get_keepalive(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return false;
+  }
 
   return socket->keepalive;
 }
 
-bool
-socket_get_blocking (Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+bool socket_get_blocking(Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return false;
+  }
 
   return socket->blocking;
 }
 
-int
-socket_get_listen_backlog (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+int socket_get_listen_backlog(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return -1;
+  }
 
   return socket->listen_backlog;
 }
 
-int32_t
-socket_get_timeout (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+int32_t socket_get_timeout(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return -1;
+  }
 
   return socket->timeout;
 }
 
-SocketAddress *
-socket_get_local_address (const Socket  *socket,
-          Error    **error)
-{
-  struct sockaddr_storage  buffer;
-  socklen_t    len;
-  SocketAddress    *ret;
+SocketAddress *socket_get_local_address(const Socket *socket) {
+  struct sockaddr_storage buffer;
+  socklen_t len;
+  SocketAddress *ret;
 
   if (UNLIKELY(socket == NULL)) {
     error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
@@ -591,7 +584,7 @@ socket_get_local_address (const Socket  *socket,
   len = sizeof(buffer);
 
   if (UNLIKELY(getsockname (socket->fd, (struct sockaddr *) &buffer, &len) < 0)) {
-    error_set_error(error,
+    error_set_error(
 			(int32_t)error_get_io_from_system(error_get_last_net()),
 			(int32_t)error_get_last_net(),
 			"Failed to call getsockname() to get local socket address"
@@ -608,7 +601,7 @@ socket_get_local_address (const Socket  *socket,
 }
 
 SocketAddress *socket_get_remote_address(const Socket *socket) {
-  struct sockaddr_storage  buffer;
+  struct sockaddr_storage buffer;
   socklen_t len;
   SocketAddress *ret;
 
@@ -620,7 +613,7 @@ SocketAddress *socket_get_remote_address(const Socket *socket) {
   len = sizeof(buffer);
 
   if (UNLIKELY(getpeername(socket->fd, (struct sockaddr *) &buffer, &len) < 0)) {
-    error_set_error(error,
+    error_set_error(
       (int32_t)error_get_io_from_system(error_get_last_net()),
       (int32_t)error_get_last_net(),
       "Failed to call getpeername() to get remote socket address"
@@ -642,30 +635,25 @@ SocketAddress *socket_get_remote_address(const Socket *socket) {
   return ret;
 }
 
-bool
-socket_is_connected (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+bool socket_is_connected(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return false;
+  }
 
   return socket->connected;
 }
 
-bool
-socket_is_closed (const Socket *socket)
-{
-  if (UNLIKELY(socket == NULL))
+bool socket_is_closed(const Socket *socket) {
+  if (UNLIKELY(socket == NULL)) {
     return true;
+  }
 
   return socket->closed;
 }
 
-bool
-socket_check_connect_result (Socket  *socket,
-             Error  **error)
-{
-  socklen_t  optlen;
-  int32_t    val;
+bool socket_check_connect_result(Socket  *socket) {
+  socklen_t optlen;
+  int32_t val;
 
   if (UNLIKELY(socket == NULL)) {
     error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
@@ -684,37 +672,34 @@ socket_check_connect_result (Socket  *socket,
   }
 
   if (UNLIKELY(val != 0))
-    error_set_error((int32_t)error_get_io_from_system(val),
-             val,
-             "Error in socket layer");
+    error_set_error((int32_t)error_get_io_from_system(val), val, "Error in socket layer");
 
   socket->connected = (val == 0);
 
   return (val == 0);
 }
 
-void
-socket_set_keepalive (Socket    *socket,
-      bool  keepalive)
-{
+void socket_set_keepalive(Socket *socket, bool keepalive) {
 #ifdef _WINDOWS
   char value;
 #else
   int32_t value;
 #endif
 
-  if (UNLIKELY(socket == NULL))
+  if (UNLIKELY(socket == NULL)) {
     return;
+  }
 
-  if (socket->keepalive == (uint32_t)!!keepalive)
+  if (socket->keepalive == (uint32_t)!!keepalive) {
     return;
+  }
 
 #ifdef _WINDOWS
-  value = !! (char)keepalive;
+  value = !!(char)keepalive;
 #else
-  value = !! (int32_t)keepalive;
+  value = !!(int32_t)keepalive;
 #endif
-  if (setsockopt (socket->fd, SOL_SOCKET, SO_KEEPALIVE, &value, sizeof(value)) < 0) {
+  if (setsockopt(socket->fd, SOL_SOCKET, SO_KEEPALIVE, &value, sizeof(value)) < 0) {
     ALERT_WARNING("Socket::socket_set_keepalive: setsockopt() with SO_KEEPALIVE failed");
     return;
   }
@@ -764,14 +749,11 @@ bool socket_bind(const Socket *socket, SocketAddress  *address, bool allow_reuse
 #endif
 
   if (UNLIKELY(socket == NULL || address == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -788,8 +770,9 @@ bool socket_bind(const Socket *socket, SocketAddress  *address, bool allow_reuse
   value = !!(int32_t)allow_reuse;
 #endif
 
-  if (setsockopt(socket->fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) < 0)
+  if (setsockopt(socket->fd, SOL_SOCKET, SO_REUSEADDR, &value, sizeof(value)) < 0) {
     ALERT_WARNING("Socket::socket_bind: setsockopt() with SO_REUSEADDR failed");
+  }
 
 #ifdef SO_REUSEPORT
   reuse_port = allow_reuse && (socket->type == SOCKET_TYPE_DATAGRAM);
@@ -800,25 +783,24 @@ bool socket_bind(const Socket *socket, SocketAddress  *address, bool allow_reuse
   value = !!(int32_t)reuse_port;
 #endif
 
-  if (setsockopt(socket->fd, SOL_SOCKET, SO_REUSEPORT, &value, sizeof(value)) < 0)
+  if (setsockopt(socket->fd, SOL_SOCKET, SO_REUSEPORT, &value, sizeof(value)) < 0) {
     ALERT_WARNING("Socket::socket_bind: setsockopt() with SO_REUSEPORT failed");
+  }
 #endif
 
   if (UNLIKELY(socket_address_to_native(address, &addr, sizeof(addr)) == false)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_FAILED,
-             0,
-             "Failed to convert socket address to native structure");
+    error_set_error((int32_t)ERROR_IO_FAILED, 0, "Failed to convert socket address to native structure");
     return false;
   }
 
   if (UNLIKELY(bind(socket->fd,
             (struct sockaddr *)&addr,
             (socklen_t)socket_address_get_native_size(address)) < 0)) {
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(error_get_last_net()),
-             (int32_t)error_get_last_net(),
-             "Failed to call bind() on socket");
+    error_set_error(
+      (int32_t)error_get_io_from_system(error_get_last_net()),
+      (int32_t)error_get_last_net(),
+      "Failed to call bind() on socket"
+    );
     return false;
   }
 
@@ -832,22 +814,16 @@ bool socket_connect(Socket *socket, SocketAddress *address) {
   ErrorIO sock_err;
 
   if (UNLIKELY(socket == NULL || address == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
   if (UNLIKELY(socket_address_to_native(address, &buffer, sizeof(buffer)) == false)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_FAILED,
-             0,
-             "Failed to convert socket address to native structure");
+    error_set_error((int32_t)ERROR_IO_FAILED, 0, "Failed to convert socket address to native structure");
     return false;
   }
 
@@ -887,23 +863,16 @@ bool socket_connect(Socket *socket, SocketAddress *address) {
   if (LIKELY(sock_err == ERROR_IO_WOULD_BLOCK || sock_err == ERROR_IO_IN_PROGRESS)) {
     if (socket->blocking) {
       if (socket_io_condition_wait(socket,
-              SOCKET_IO_CONDITION_POLLOUT,
-              error) == true &&
-          socket_check_connect_result(socket, error) == true) {
+              SOCKET_IO_CONDITION_POLLOUT) == true &&
+          socket_check_connect_result(socket) == true) {
         socket->connected = true;
         return true;
       }
     } else {
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Couldn't block non-blocking socket");
+      error_set_error((int32_t)sock_err, err_code, "Couldn't block non-blocking socket");
     }
   } else {
-    error_set_error(error,
-             (int32_t)sock_err,
-             err_code,
-             "Failed to call connect() on socket");
+    error_set_error((int32_t)sock_err, err_code, "Failed to call connect() on socket");
   }
 
   return false;
@@ -911,22 +880,20 @@ bool socket_connect(Socket *socket, SocketAddress *address) {
 
 bool socket_listen(Socket *socket) {
   if (UNLIKELY(socket == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
   if (UNLIKELY(listen(socket->fd, socket->listen_backlog) < 0)) {
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(error_get_last_net()),
-             (int32_t)error_get_last_net(),
-             "Failed to call listen() on socket");
+    error_set_error(
+      (int32_t)error_get_io_from_system(error_get_last_net()),
+      (int32_t)error_get_last_net(),
+      "Failed to call listen() on socket"
+    );
     return false;
   }
 
@@ -944,22 +911,18 @@ Socket *socket_accept(const Socket  *socket) {
 #endif
 
   if (UNLIKELY(socket == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return NULL;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return NULL;
   }
 
   for (;;) {
     if (socket->blocking &&
         socket_io_condition_wait(socket,
-            SOCKET_IO_CONDITION_POLLIN,
-            error) == false) {
+            SOCKET_IO_CONDITION_POLLIN) == false) {
       return NULL;
 	  }
 
@@ -976,10 +939,7 @@ Socket *socket_accept(const Socket  *socket) {
         continue;
       }
 
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Failed to call accept() on socket");
+      error_set_error((int32_t)sock_err, err_code, "Failed to call accept() on socket");
 
       return NULL;
     }
@@ -1002,7 +962,7 @@ Socket *socket_accept(const Socket  *socket) {
   }
 #endif
 
-  if (UNLIKELY((ret = socket_new_from_fd(res, error)) == NULL)) {
+  if (UNLIKELY((ret = socket_new_from_fd(res)) == NULL)) {
     if (UNLIKELY(sys_close(res) != 0)) {
       ALERT_WARNING("Socket::socket_accept: sys_close() failed");
     }
@@ -1019,22 +979,18 @@ ssize_t socket_receive(const Socket *socket, char *buffer, size_t buflen) {
   int32_t err_code;
 
   if (UNLIKELY(socket == NULL || buffer == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0,  "Invalid input argument");
     return -1;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return -1;
   }
 
   for (;;) {
     if (socket->blocking &&
         socket_io_condition_wait(socket,
-            SOCKET_IO_CONDITION_POLLIN,
-            error) == false) {
+            SOCKET_IO_CONDITION_POLLIN) == false) {
       return -1;
 	  }
 
@@ -1048,13 +1004,11 @@ ssize_t socket_receive(const Socket *socket, char *buffer, size_t buflen) {
 #endif
       sock_err = error_get_io_from_system(err_code);
 
-      if (socket->blocking && sock_err == ERROR_IO_WOULD_BLOCK)
+      if (socket->blocking && sock_err == ERROR_IO_WOULD_BLOCK) {
         continue;
+      }
 
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Failed to call recv() on socket");
+      error_set_error((int32_t)sock_err, err_code, "Failed to call recv() on socket");
 
       return -1;
     }
@@ -1073,14 +1027,11 @@ ssize_t socket_receive_from(const Socket *socket, SocketAddress  **address, char
   int32_t err_code;
 
   if (UNLIKELY(socket == NULL || buffer == NULL || buflen == 0)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return -1;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return -1;
   }
 
@@ -1089,8 +1040,7 @@ ssize_t socket_receive_from(const Socket *socket, SocketAddress  **address, char
   for (;;) {
     if (socket->blocking &&
         socket_io_condition_wait(socket,
-            SOCKET_IO_CONDITION_POLLIN,
-            error) == false) {
+            SOCKET_IO_CONDITION_POLLIN) == false) {
       return -1;
 	  }
 
@@ -1113,10 +1063,7 @@ ssize_t socket_receive_from(const Socket *socket, SocketAddress  **address, char
         continue;
       }
 
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Failed to call recvfrom() on socket");
+      error_set_error((int32_t)sock_err, err_code, "Failed to call recvfrom() on socket");
 
       return -1;
     }
@@ -1131,28 +1078,24 @@ ssize_t socket_receive_from(const Socket *socket, SocketAddress  **address, char
   return ret;
 }
 
-ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen, Error  **error) {
+ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen) {
   ErrorIO sock_err;
   ssize_t ret;
   int32_t err_code;
 
   if (UNLIKELY(socket == NULL || buffer == NULL || buflen == 0)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return -1;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return -1;
   }
 
   for (;;) {
     if (socket->blocking &&
         socket_io_condition_wait(socket,
-            SOCKET_IO_CONDITION_POLLOUT,
-            error) == false) {
+            SOCKET_IO_CONDITION_POLLOUT) == false) {
       return -1;
 	  }
 
@@ -1173,10 +1116,7 @@ ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen, Err
         continue;
       }
 
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Failed to call send() on socket");
+      error_set_error((int32_t)sock_err, err_code, "Failed to call send() on socket");
 
       return -1;
     }
@@ -1195,22 +1135,16 @@ ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char 
   int32_t err_code;
 
   if (!socket || !address || !buffer) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return -1;
   }
 
-  if (!_XX__socket_check(socket, error)) {
+  if (!private_socket_check(socket)) {
     return -1;
   }
 
   if (!socket_address_to_native(address, &sa, sizeof(sa))) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_FAILED,
-             0,
-             "Failed to convert socket address to native structure");
+    error_set_error((int32_t)ERROR_IO_FAILED, 0, "Failed to convert socket address to native structure");
     return -1;
   }
 
@@ -1218,7 +1152,7 @@ ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char 
 
   for (;;) {
     if (socket->blocking &&
-        socket_io_condition_wait(socket, SOCKET_IO_CONDITION_POLLOUT, error) == false) {
+        socket_io_condition_wait(socket, SOCKET_IO_CONDITION_POLLOUT) == false) {
       return -1;
 	  }
 
@@ -1241,10 +1175,7 @@ ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char 
         continue;
       }
 
-      error_set_error(error,
-               (int32_t)sock_err,
-               err_code,
-               "Failed to call sendto() on socket");
+      error_set_error((int32_t)sock_err, err_code, "Failed to call sendto() on socket");
 
       return -1;
     }
@@ -1259,10 +1190,7 @@ bool socket_close(Socket *socket) {
   int32_t err_code;
 
   if (UNLIKELY(socket == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
@@ -1272,18 +1200,15 @@ bool socket_close(Socket *socket) {
 
   if (LIKELY(sys_close(socket->fd) == 0)) {
     socket->connected = false;
-    socket->closed    = true;
+    socket->closed = true;
     socket->listening = false;
-    socket->fd        = -1;
+    socket->fd = -1;
 
     return true;
   } else {
     err_code = error_get_last_net();
 
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(err_code),
-             err_code,
-             "Failed to close socket");
+    error_set_error((int32_t)error_get_io_from_system(err_code), err_code, "Failed to close socket");
 
     return false;
   }
@@ -1297,7 +1222,7 @@ bool socket_shutdown(Socket *socket, bool shutdown_read, bool shutdown_write) {
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -1324,10 +1249,11 @@ bool socket_shutdown(Socket *socket, bool shutdown_read, bool shutdown_write) {
 #endif
 
   if (UNLIKELY(shutdown (socket->fd, how) != 0)) {
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(error_get_last_net()),
-             (int32_t)error_get_last_net(),
-             "Failed to call shutdown() on socket");
+    error_set_error(
+      (int32_t)error_get_io_from_system(error_get_last_net()),
+      (int32_t)error_get_last_net(),
+      "Failed to call shutdown() on socket"
+    );
     return false;
   }
 
@@ -1345,19 +1271,19 @@ void socket_free(Socket *socket) {
 
 #ifdef _WINDOWS
   if (LIKELY(socket->events != WSA_INVALID_EVENT)) {
-    WSACloseEvent (socket->events);
+    WSACloseEvent(socket->events);
   }
 #endif
 
-  socket_close(socket, NULL);
+  socket_close(socket);
 
 #ifdef P_OS_SCO
   if (LIKELY(socket->timer != NULL)) {
-    time_profiler_free (socket->timer);
+    time_profiler_free(socket->timer);
   }
 #endif
 
-  free (socket);
+  free(socket);
 }
 
 bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t size) {
@@ -1369,7 +1295,7 @@ bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t si
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -1381,10 +1307,11 @@ bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t si
             optname,
             (const void *) &optval,
             sizeof(optval)) != 0)) {
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(error_get_last_net()),
-             (int32_t)error_get_last_net(),
-             "Failed to call setsockopt() on socket to set buffer size");
+    error_set_error(
+      (int32_t)error_get_io_from_system(error_get_last_net()),
+      (int32_t)error_get_last_net(),
+      "Failed to call setsockopt() on socket to set buffer size"
+    );
     return false;
   }
 
@@ -1402,7 +1329,7 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -1422,16 +1349,18 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
   if (evret == WSA_WAIT_EVENT_0) {
     return true;
   } else if (evret == WSA_WAIT_TIMEOUT) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_TIMED_OUT,
-             (int32_t)error_get_last_net(),
-             "Timed out while waiting socket condition");
+    error_set_error(
+      (int32_t)ERROR_IO_TIMED_OUT,
+      (int32_t)error_get_last_net(),
+      "Timed out while waiting socket condition"
+    );
     return false;
   } else {
-    error_set_error(error,
-             (int32_t)error_get_io_from_system(error_get_last_net()),
-             (int32_t)error_get_last_net(),
-             "Failed to call WSAWaitForMultipleEvents() on socket");
+    error_set_error(
+      (int32_t)error_get_io_from_system(error_get_last_net()),
+      (int32_t)error_get_last_net(),
+      "Failed to call WSAWaitForMultipleEvents() on socket"
+    );
     return false;
   }
 #elif defined(SOCKET_USE_POLL)
@@ -1440,14 +1369,11 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
   int32_t timeout;
 
   if (UNLIKELY(socket == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -1486,16 +1412,18 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
     if (evret == 1) {
       return true;
     } else if (evret == 0) {
-      error_set_error(error,
-               (int32_t)ERROR_IO_TIMED_OUT,
-               (int32_t)error_get_last_net(),
-               "Timed out while waiting socket condition");
+      error_set_error(
+        (int32_t)ERROR_IO_TIMED_OUT,
+        (int32_t)error_get_last_net(),
+        "Timed out while waiting socket condition"
+      );
       return false;
     } else {
-      error_set_error(error,
-               (int32_t)error_get_io_from_system(error_get_last_net()),
-               (int32_t)error_get_last_net(),
-               "Failed to call poll() on socket");
+      error_set_error(
+        (int32_t)error_get_io_from_system(error_get_last_net()),
+        (int32_t)error_get_last_net(),
+        "Failed to call poll() on socket"
+      );
       return false;
     }
   }
@@ -1506,14 +1434,11 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
   int32_t evret;
 
   if (UNLIKELY(socket == NULL)) {
-    error_set_error(error,
-             (int32_t)ERROR_IO_INVALID_ARGUMENT,
-             0,
-             "Invalid input argument");
+    error_set_error((int32_t)ERROR_IO_INVALID_ARGUMENT, 0, "Invalid input argument");
     return false;
   }
 
-  if (UNLIKELY(_XX__socket_check(socket, error) == false)) {
+  if (UNLIKELY(private_socket_check(socket) == false)) {
     return false;
   }
 
@@ -1533,9 +1458,9 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
     }
 
     if (condition == SOCKET_IO_CONDITION_POLLIN) {
-      evret = select (socket->fd + 1, &fds, NULL, NULL, ptv);
+      evret = select(socket->fd + 1, &fds, NULL, NULL, ptv);
     } else {
-      evret = select (socket->fd + 1, NULL, &fds, NULL, ptv);
+      evret = select(socket->fd + 1, NULL, &fds, NULL, ptv);
     }
 
 #ifdef EINTR
@@ -1547,16 +1472,18 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
     if (evret == 1) {
       return true;
     } else if (evret == 0) {
-      error_set_error(error,
-               (int32_t)ERROR_IO_TIMED_OUT,
-               (int32_t)error_get_last_net(),
-               "Timed out while waiting socket condition");
+      error_set_error(
+        (int32_t)ERROR_IO_TIMED_OUT,
+        (int32_t)error_get_last_net(),
+        "Timed out while waiting socket condition"
+      );
       return false;
     } else {
-      error_set_error(error,
-               (int32_t)error_get_io_from_system(error_get_last_net()),
-               (int32_t)error_get_last_net(),
-               "Failed to call select() on socket");
+      error_set_error(
+        (int32_t)error_get_io_from_system(error_get_last_net()),
+        (int32_t)error_get_last_net(),
+        "Failed to call select() on socket"
+      );
       return false;
     }
   }

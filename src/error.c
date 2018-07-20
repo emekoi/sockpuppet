@@ -36,18 +36,17 @@
 	#ifndef WIN32_LEAN_AND_MEAN
 		#define WIN32_LEAN_AND_MEAN
 	#endif
-	#include <windows.h>
 	#include <winsock2.h>
 #endif
 
 #include <stdlib.h>
 #include <string.h>
 
-static struct Error_ {
-  int32_t  code;
-  int32_t  native_code;
-  char  *message;
-} ERROR = {0};
+static struct {
+  int32_t code;
+  int32_t native_code;
+  char *message;
+} CURRENT_ERROR = {0};
 
 ErrorIO error_get_io_from_system(int32_t err_code) {
   switch (err_code) {
@@ -418,59 +417,59 @@ ErrorIO error_get_io_from_system(int32_t err_code) {
   }
 }
 
-ErrorIO error_get_last_io(void) {
+ErrorIO error_get_last_io() {
   return error_get_io_from_system(error_get_last_system());
 }
 
 const char *error_get_message() {
-  return ERROR.message;
+  return CURRENT_ERROR.message;
 }
 
 int32_t error_get_code() {
-  return ERROR.code;
+  return CURRENT_ERROR.code;
 }
 
 int32_t error_get_native_code() {
-  return ERROR.native_code;
+  return CURRENT_ERROR.native_code;
 }
 
 void error_set_error(int32_t code, int32_t native_code, const char *message) {
-  if (ERROR.message != NULL) {
-    free(ERROR->message);
+  if (CURRENT_ERROR.message != NULL) {
+    free(CURRENT_ERROR.message);
   }
 
-  ERROR.code = code;
-  ERROR.native_code = native_code;
-  ERROR.message = strdup(message);
+  CURRENT_ERROR.code = code;
+  CURRENT_ERROR.native_code = native_code;
+  CURRENT_ERROR.message = strdup(message);
 }
 
 void error_set_code(int32_t code) {
-  ERROR.code = code;
+  CURRENT_ERROR.code = code;
 }
 
 void error_set_native_code(int32_t native_code) {
-	ERROR.native_code = native_code;
+	CURRENT_ERROR.native_code = native_code;
 }
 
 void error_set_message(const char *message) {
-  if (ERROR.message != NULL) {
-    free (ERROR.message);
+  if (CURRENT_ERROR.message != NULL) {
+    free (CURRENT_ERROR.message);
   }
 
-  ERROR.message = strdup(message);
+  CURRENT_ERROR.message = strdup(message);
 }
 
 void error_clear() {
-  if (ERROR.message != NULL) {
-    free(ERROR.message);
+  if (CURRENT_ERROR.message != NULL) {
+    free(CURRENT_ERROR.message);
   }
 
-  ERROR.message = NULL;
-  ERROR.code = 0;
-  ERROR.native_code = 0;
+  CURRENT_ERROR.message = NULL;
+  CURRENT_ERROR.code = 0;
+  CURRENT_ERROR.native_code = 0;
 }
 
-int32_t error_get_last_system(void) {
+int32_t error_get_last_system() {
 #ifdef _WINDOWS
   return (int32_t)GetLastError();
 #else
@@ -487,7 +486,7 @@ int32_t error_get_last_system(void) {
 #endif
 }
 
-int32_t error_get_last_net(void) {
+int32_t error_get_last_net() {
 #if defined(_WINDOWS)
   return WSAGetLastError();
 #elif defined(__OS2__)

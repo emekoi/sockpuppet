@@ -197,7 +197,7 @@ typedef struct Socket Socket;
  * fail to get a socket family from the descriptor thus failing to construct the
  * #Socket object.
  */
-Socket *socket_new_from_fd(int32_t fd, Error **error);
+Socket *socket_new_from_fd(int32_t fd);
 
 /*
  * @brief Creates a new #Socket object.
@@ -216,7 +216,7 @@ Socket *socket_new_from_fd(int32_t fd, Error **error);
  * #SocketProtocol has the same values as the system definitions. You can pass
  * any existing protocol value to this call if you know it exactly.
  */
-Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol, Error **error);
+Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol);
 
 /*
  * @brief Gets an underlying file descriptor of a @a socket.
@@ -348,7 +348,7 @@ int32_t socket_get_timeout(const Socket *socket);
  * If the @a socket was not bound explicitly with socket_bind() or implicitly
  * with socket_connect(), the call will fail.
  */
-SocketAddress *socket_get_local_address(const Socket *socket, Error **error);
+SocketAddress *socket_get_local_address(const Socket *socket);
 
 /*
  * @brief Gets a @a socket remote endpoint address.
@@ -365,7 +365,7 @@ SocketAddress *socket_get_local_address(const Socket *socket, Error **error);
  * @warning On Syllable this call will always return NULL for connection-less
  * sockets (though connecting is possible).
  */
-SocketAddress *socket_get_remote_address(const Socket *socket, Error **error);
+SocketAddress *socket_get_remote_address(const Socket *socket);
 
 /*
  * @brief Checks whether a @a socket is connected.
@@ -415,7 +415,7 @@ bool socket_is_closed(const Socket *socket);
  * a connection operation to be finished using socket_io_condition_wait()
  * with the #SOCKET_IO_CONDITION_POLLOUT option.
  */
-bool socket_check_connect_result(Socket *socket, Error **error);
+bool socket_check_connect_result(Socket *socket);
 
 /*
  * @brief Sets the @a socket SO_KEEPALIVE flag.
@@ -511,7 +511,7 @@ void socket_set_timeout(Socket *socket, int32_t timeout);
  * to TRUE, while a client socket shouldn't set this option to TRUE. If you
  * restart the client quickly with the same address it can fail to bind.
  */
-bool socket_bind(const Socket *socket, SocketAddress *address, bool allow_reuse, Error **error);
+bool socket_bind(const Socket *socket, SocketAddress *address, bool allow_reuse);
 
 /*
  * @brief Connects a @a socket to a given remote address.
@@ -541,7 +541,7 @@ bool socket_bind(const Socket *socket, SocketAddress *address, bool allow_reuse,
  * #SOCKET_IO_CONDITION_POLLOUT parameter. You should check the connection
  * result after that using socket_check_connect_result().
  */
-bool socket_connect(Socket *socket, SocketAddress *address, Error **error);
+bool socket_connect(Socket *socket, SocketAddress *address);
 
 /*
  * @brief Puts a @a socket into a listening state.
@@ -561,7 +561,7 @@ bool socket_connect(Socket *socket, SocketAddress *address, Error **error);
  * backlog parameter must be set before calling socket_listen() to take
  * effect.
  */
-bool socket_listen(Socket *socket, Error **error);
+bool socket_listen(Socket *socket);
 
 /*
  * @brief Accepts a @a socket incoming connection.
@@ -575,7 +575,7 @@ bool socket_listen(Socket *socket, Error **error);
  * accept new incoming connections only after calling socket_bind() and
  * socket_listen().
  */
-Socket * socket_accept(const Socket *socket, Error **error);
+Socket * socket_accept(const Socket *socket);
 
 /*
  * @brief Receives data from a given @a socket.
@@ -596,7 +596,7 @@ Socket * socket_accept(const Socket *socket, Error **error);
  * This call is normally used only with the a connected socket, see
  * socket_connect().
  */
-ssize_t socket_receive(const Socket *socket, char *buffer, size_t buflen, Error **error);
+ssize_t socket_receive(const Socket *socket, char *buffer, size_t buflen);
 
 /*
  * @brief Receives data from a given @a socket and saves a remote address.
@@ -618,7 +618,7 @@ ssize_t socket_receive(const Socket *socket, char *buffer, size_t buflen, Error 
  *
  * This call is normally used only with a connection-less socket.
  */
-ssize_t socket_receive_from(const Socket *socket, SocketAddress **address, char *buffer, size_t buflen, Error **error);
+ssize_t socket_receive_from(const Socket *socket, SocketAddress **address, char *buffer, size_t buflen);
 
 /*
  * @brief Sends data through a given @a socket.
@@ -636,7 +636,7 @@ ssize_t socket_receive_from(const Socket *socket, SocketAddress **address, char 
  * remote address using socket_connect() because it will always fail, use
  * socket_send_to() instead.
  */
-ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen, Error **error);
+ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen);
 
 /*
  * @brief Sends data through a given @a socket to a given address.
@@ -656,7 +656,7 @@ ssize_t socket_send(const Socket *socket, const char *buffer, size_t buflen, Err
  * socket_send() instead. If you are working with connection oriented sockets
  * then use socket_send() after establishing a connection.
  */
-ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char *buffer, size_t buflen, Error **error);
+ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char *buffer, size_t buflen);
 
 /*
  * @brief Closes a @a socket.
@@ -670,7 +670,7 @@ ssize_t socket_send_to(const Socket *socket, SocketAddress *address, const char 
  * a socket connection. See documentation for socket_bind() for more
  * information.
  */
-bool socket_close(Socket *socket, Error **error);
+bool socket_close(Socket *socket);
 
 /*
  * @brief Shutdowns a full-duplex @a socket data transfer link.
@@ -687,7 +687,7 @@ bool socket_close(Socket *socket, Error **error);
  * direction. It is often used to gracefully close a connection for a connection
  * oriented socket.
  */
-bool socket_shutdown(Socket *socket, bool shutdown_read, bool shutdown_write, Error **error);
+bool socket_shutdown(Socket *socket, bool shutdown_read, bool shutdown_write);
 
 /*
  * @brief Closes a @a socket (if not closed yet) and frees its resources.
@@ -707,7 +707,7 @@ void socket_free(Socket *socket);
  * @since 0.0.1
  * @warning Not supported on Syllable.
  */
-bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t size, Error **error);
+bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t size);
 
 /*
  * @brief Waits for a specified I/O @a condition on @a socket.
@@ -723,4 +723,4 @@ bool socket_set_buffer_size(const Socket *socket, SocketDirection dir, size_t si
  * doesn't finish until timeout expired, call will fail with
  * #P_ERROR_IO_TIMED_OUT error code.
  */
-bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition, Error **error);
+bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition);

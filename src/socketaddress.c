@@ -501,7 +501,7 @@ void socket_address_set_scope_id(SocketAddress *addr, uint32_t scope_id) {
 #endif
 }
 
-bool socket_address_is_flow_info_supported(void) {
+bool socket_address_is_flow_info_supported() {
 #ifdef AF_INET6
   return true;
 #else
@@ -509,7 +509,7 @@ bool socket_address_is_flow_info_supported(void) {
 #endif
 }
 
-bool socket_address_is_scope_id_supported(void) {
+bool socket_address_is_scope_id_supported() {
 #ifdef AF_INET6
   return true;
 #else
@@ -517,7 +517,7 @@ bool socket_address_is_scope_id_supported(void) {
 #endif
 }
 
-bool socket_address_is_ipv6_supported(void) {
+bool socket_address_is_ipv6_supported() {
 #ifdef AF_INET6
   return true;
 #else
