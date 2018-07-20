@@ -1,7 +1,9 @@
 /*
- * The MIT License
+ * MIT License
  *
+ * Copyright (C) 2018 emekoi
  * Copyright (C) 2010-2017 Alexander Saprykin <saprykin.spb@gmail.com>
+ *
  * Some workarounds have been used from Glib (comments are kept)
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -24,13 +26,11 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-#include "socket.h"
-#ifdef P_OS_SCO
-#  include "ptimeprofiler.h"
-#endif
 
 #include <stdlib.h>
 #include <string.h>
+#include "socket.h"
+#include "error.h"
 
 #ifndef _WINDOWS
   #include <fcntl.h>
@@ -69,6 +69,7 @@ struct Socket {
   uint32_t closed    : 1;
   uint32_t connected : 1;
   uint32_t listening : 1;
+  // uint32_t delay     : 1;
 #ifdef _WINDOWS
   WSAEVENT events;
 #endif
@@ -160,7 +161,7 @@ static bool private_socket_set_details_from_fd(Socket *socket) {
 #ifdef SO_DOMAIN
   SocketFamily family;
 #endif
-  struct sockaddr_storage  address;
+  struct sockaddr_storage address;
   int32_t fd, value;
   socklen_t addrlen, optlen;
 #ifdef _WINDOWS
@@ -367,14 +368,6 @@ Socket *socket_new_from_fd(int32_t fd) {
   ret->timeout = 0;
   ret->blocking = true;
 
-#ifdef P_OS_SCO
-  if (UNLIKELY((ret->timer = time_profiler_new()) == NULL)) {
-    error_set_error( (int32_t)ERROR_IO_NO_RESOURCES, 0, "Failed to allocate memory for internal timer");
-    free(ret);
-    return NULL;
-  }
-#endif
-
 #ifdef _WINDOWS
   if (UNLIKELY((ret->events = WSACreateEvent()) == WSA_INVALID_EVENT)) {
     error_set_error(
@@ -391,7 +384,7 @@ Socket *socket_new_from_fd(int32_t fd) {
 }
 
 Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol) {
-  Socket  *ret;
+  Socket *ret;
   int32_t native_type, fd;
 #ifndef _WINDOWS
   int32_t flags;
@@ -429,14 +422,6 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
     return NULL;
   }
 
-#ifdef P_OS_SCO
-  if (UNLIKELY((ret->timer = time_profiler_new()) == NULL)) {
-    error_set_error((int32_t)ERROR_IO_NO_RESOURCES, 0, "Failed to allocate memory for internal timer");
-    free (ret);
-    return NULL;
-  }
-#endif
-
 #ifdef SOCK_CLOEXEC
   native_type |= SOCK_CLOEXEC;
 #endif
@@ -446,9 +431,7 @@ Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol
       (int32_t)error_get_last_net(),
       "Failed to call socket() to create socket"
     );
-#ifdef P_OS_SCO
-    time_profiler_free(ret->timer);
-#endif
+
     free(ret);
     return NULL;
   }
@@ -1277,12 +1260,6 @@ void socket_free(Socket *socket) {
 
   socket_close(socket);
 
-#ifdef P_OS_SCO
-  if (LIKELY(socket->timer != NULL)) {
-    time_profiler_free(socket->timer);
-  }
-#endif
-
   free(socket);
 }
 
@@ -1388,24 +1365,12 @@ bool socket_io_condition_wait(const Socket *socket, SocketIOCondition condition)
     pfd.events = POLLOUT;
   }
 
-#ifdef P_OS_SCO
-  time_profiler_reset(socket->timer);
-#endif
-
   while (true) {
     evret = poll(&pfd, 1, timeout);
 
 #ifdef EINTR
     if (evret == -1 && error_get_last_net() == EINTR) {
-	#ifdef P_OS_SCO
-      if (timeout < 0 ||
-          (time_profiler_elapsed_usecs(socket->timer) / 1000) < (uint32_t64)timeout)
-        continue;
-      else
-        evret = 0;
-	#else
       continue;
-	#endif
     }
 #endif
 

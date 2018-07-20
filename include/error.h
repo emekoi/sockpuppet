@@ -1,6 +1,34 @@
+/*
+ * MIT License
+ *
+ * Copyright (C) 2018 emekoi
+ * Copyright (C) 2010-2016 Alexander Saprykin <saprykin.spb@gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining
+ * a copy of this software and associated documentation files (the
+ * 'Software'), to deal in the Software without restriction, including
+ * without limitation the rights to use, copy, modify, merge, publish,
+ * distribute, sublicense, and/or sell copies of the Software, and to
+ * permit persons to whom the Software is furnished to do so, subject to
+ * the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+ * IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+ * CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+ * TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+ * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ */
+
+
 #pragma once
 
 #include "util.h"
+#include <stdint.h>
 
 typedef enum {
   ERROR_IO_NONE                = 500,  /* No error. */
@@ -25,11 +53,12 @@ typedef enum {
   ERROR_IO_NOT_EXISTS          = 519,  /* Specified entry doesn't exist. */
   ERROR_IO_NO_MORE             = 520,  /* No more data left. */
   ERROR_IO_NOT_IMPLEMENTED     = 521,  /* Operation is not implemented. */
-  ERROR_IO_FAILED              = 522  /* General error. */
+  ERROR_IO_FAILED              = 522   /* General error. */
 } ErrorIO;
 
 ErrorIO	error_get_io_from_system(int32_t err_code);
 ErrorIO	error_get_last_io();
+const char *error_code_to_string();
 const char *error_get_message();
 int32_t error_get_code();
 int32_t error_get_native_code();

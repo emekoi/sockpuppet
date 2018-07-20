@@ -1,6 +1,7 @@
 /*
- * The MIT License
+ * MIT License
  *
+ * Copyright (C) 2018 emekoi
  * Copyright (C) 2016-2018 Alexander Saprykin <saprykin.spb@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -23,6 +24,9 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
+#include <stdlib.h>
+#include <string.h>
 #include "error.h"
 
 #ifndef _WINDOWS
@@ -38,9 +42,6 @@
 	#endif
 	#include <winsock2.h>
 #endif
-
-#include <stdlib.h>
-#include <string.h>
 
 static struct {
   int32_t code;
@@ -421,6 +422,34 @@ ErrorIO error_get_last_io() {
   return error_get_io_from_system(error_get_last_system());
 }
 
+const char *error_code_to_string(ErrorIO error) {
+  switch (error) {
+    case ERROR_IO_NONE: return "No error.";
+    case ERROR_IO_NO_RESOURCES: return "Operating system hasn't enough resources.";
+    case ERROR_IO_NOT_AVAILABLE: return "Resource isn't available.";
+    case ERROR_IO_ACCESS_DENIED: return "Access denied.";
+    case ERROR_IO_CONNECTED: return "Already connected.";
+    case ERROR_IO_IN_PROGRESS: return "Operation in progress.";
+    case ERROR_IO_ABORTED: return "Operation aborted.";
+    case ERROR_IO_INVALID_ARGUMENT: return "Invalid argument specified.";
+    case ERROR_IO_NOT_SUPPORTED: return "Operation not supported.";
+    case ERROR_IO_TIMED_OUT: return "Operation timed out.";
+    case ERROR_IO_WOULD_BLOCK: return "Operation cannot be completed immediatly.";
+    case ERROR_IO_ADDRESS_IN_USE: return "Address is already under usage.";
+    case ERROR_IO_CONNECTION_REFUSED: return "Connection refused.";
+    case ERROR_IO_NOT_CONNECTED: return "Connection required first.";
+    case ERROR_IO_QUOTA: return "User quota exceeded.";
+    case ERROR_IO_IS_DIRECTORY: return "Trying to open directory for writing.";
+    case ERROR_IO_NOT_DIRECTORY: return "Component of the path prefix is not a directory. ";
+    case ERROR_IO_NAMETOOLONG: return "Specified name is too long.";
+    case ERROR_IO_EXISTS: return "Specified entry already exists.";
+    case ERROR_IO_NOT_EXISTS: return "Specified entry doesn't exist.";
+    case ERROR_IO_NO_MORE: return "No more data left.";
+    case ERROR_IO_NOT_IMPLEMENTED: return "Operation is not implemented.";
+    case ERROR_IO_FAILED: return "General error.";
+  }
+}
+
 const char *error_get_message() {
   return CURRENT_ERROR.message;
 }
@@ -473,7 +502,7 @@ int32_t error_get_last_system() {
 #ifdef _WINDOWS
   return (int32_t)GetLastError();
 #else
-  #ifdef !defined(VMS) || !defined(__VMS)
+  #if !defined(VMS) || !defined(__VMS)
   int32_t error_code = errno;
 
   if (error_code == EVMSERR)

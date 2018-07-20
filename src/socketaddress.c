@@ -1,6 +1,7 @@
 /*
- * The MIT License
+ * MIT License
  *
+ * Copyright (C) 2018 emekoi
  * Copyright (C) 2010-2016 Alexander Saprykin <saprykin.spb@gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person obtaining
@@ -23,16 +24,15 @@
  * SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+
+#include <stdlib.h>
+#include <string.h>
 #include "socketaddress.h"
 
 #ifndef _WINDOWS
   #include <arpa/inet.h>
   #include <netdb.h>
 #endif
-
-#include <stdlib.h>
-#include <string.h>
-
 
 /* According to Open Group specifications */
 #ifndef INET_ADDRSTRLEN
