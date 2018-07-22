@@ -298,7 +298,7 @@ static bool private_socket_set_details_from_fd(Socket *socket) {
   return true;
 }
 
-bool socket_init_once() {
+bool socket_init_once(void) {
 #ifdef _WINDOWS
   WORD ver_req;
   WSADATA wsa_data;
@@ -321,7 +321,7 @@ bool socket_init_once() {
   return true;
 }
 
-void socket_close_once() {
+void socket_close_once(void) {
 #ifdef _WINDOWS
   WSACleanup();
 #endif
@@ -654,8 +654,9 @@ bool socket_check_connect_result(Socket  *socket) {
     return false;
   }
 
-  if (UNLIKELY(val != 0))
+  if (UNLIKELY(val != 0)) {
     error_set_error((int32_t)error_get_io_from_system(val), val, "Error in socket layer");
+  }
 
   socket->connected = (val == 0);
 

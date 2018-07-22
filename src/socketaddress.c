@@ -80,7 +80,7 @@ struct SocketAddress {
   uint32_t scope_id;
 };
 
-SocketAddress *socket_address_new_from_native (const void *native, size_t len) {
+SocketAddress *socket_address_new_from_native(const void *native, size_t len) {
   SocketAddress *ret;
   uint16_t family;
 
@@ -131,7 +131,7 @@ SocketAddress *socket_address_new_from_native (const void *native, size_t len) {
   }
 }
 
-SocketAddress *socket_address_new(const char  *address, uint16_t port) {
+SocketAddress *socket_address_new(const char *address, uint16_t port) {
   SocketAddress *ret;
 #if defined(_WINDOWS)
   struct addrinfo hints;
@@ -139,7 +139,7 @@ SocketAddress *socket_address_new(const char  *address, uint16_t port) {
 #endif
 
 #ifdef _WINDOWS
-  struct sockaddr_storage  sa;
+  struct sockaddr_storage sa;
   struct sockaddr_in *sin = (struct sockaddr_in *) &sa;
 	#ifdef AF_INET6
   	struct sockaddr_in6 *sin6 = (struct sockaddr_in6 *) &sa;
@@ -165,16 +165,16 @@ SocketAddress *socket_address_new(const char  *address, uint16_t port) {
     if (UNLIKELY(getaddrinfo(address, NULL, &hints, &res) != 0)) {
       return NULL;
     }
-
+    
     if (LIKELY(res->ai_family == AF_INET6 &&
             res->ai_addrlen == sizeof(struct sockaddr_in6))) {
       ((struct sockaddr_in6 *) res->ai_addr)->sin6_port = htons(port);
       ret = socket_address_new_from_native(res->ai_addr, res->ai_addrlen);
-    } else
+    } else {
       ret = NULL;
+    }
 
     freeaddrinfo(res);
-
     return ret;
   }
 #endif
@@ -199,7 +199,6 @@ SocketAddress *socket_address_new(const char  *address, uint16_t port) {
 	#ifdef AF_INET6
   else {
     sin6->sin6_family = AF_INET6;
-
     if (WSAStringToAddressA((LPSTR) address, AF_INET6, NULL, (LPSOCKADDR) &sa, &len) == 0) {
       memcpy(&ret->addr.sin6_addr, &sin6->sin6_addr, sizeof(struct in6_addr));
       ret->family = SOCKET_FAMILY_INET6;
@@ -501,7 +500,7 @@ void socket_address_set_scope_id(SocketAddress *addr, uint32_t scope_id) {
 #endif
 }
 
-bool socket_address_is_flow_info_supported() {
+bool socket_address_is_flow_info_supported(void) {
 #ifdef AF_INET6
   return true;
 #else
@@ -509,7 +508,7 @@ bool socket_address_is_flow_info_supported() {
 #endif
 }
 
-bool socket_address_is_scope_id_supported() {
+bool socket_address_is_scope_id_supported(void) {
 #ifdef AF_INET6
   return true;
 #else
@@ -517,7 +516,7 @@ bool socket_address_is_scope_id_supported() {
 #endif
 }
 
-bool socket_address_is_ipv6_supported() {
+bool socket_address_is_ipv6_supported(void) {
 #ifdef AF_INET6
   return true;
 #else

@@ -3,7 +3,7 @@
 # bash
 set -e
 mkdir -p bin
-gcc src/*.c tests/$1/*.c -o bin/$1 -Iinclude $2
+gcc src/*.c examples/$1/*.c -o bin/$1 -Iinclude $2
 exit
 
 :windows
@@ -11,4 +11,3 @@ exit
 
 sh build.sh.bat %1 -lws2_32
 exit /b
-

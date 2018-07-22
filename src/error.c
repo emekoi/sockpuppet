@@ -418,7 +418,7 @@ ErrorIO error_get_io_from_system(int32_t err_code) {
   }
 }
 
-ErrorIO error_get_last_io() {
+ErrorIO error_get_last_io(void) {
   return error_get_io_from_system(error_get_last_system());
 }
 
@@ -448,17 +448,18 @@ const char *error_code_to_string(ErrorIO error) {
     case ERROR_IO_NOT_IMPLEMENTED: return "Operation is not implemented.";
     case ERROR_IO_FAILED: return "General error.";
   }
+  return "?";
 }
 
-const char *error_get_message() {
+const char *error_get_message(void) {
   return CURRENT_ERROR.message;
 }
 
-int32_t error_get_code() {
+int32_t error_get_code(void) {
   return CURRENT_ERROR.code;
 }
 
-int32_t error_get_native_code() {
+int32_t error_get_native_code(void) {
   return CURRENT_ERROR.native_code;
 }
 
@@ -488,7 +489,7 @@ void error_set_message(const char *message) {
   CURRENT_ERROR.message = strdup(message);
 }
 
-void error_clear() {
+void error_clear(void) {
   if (CURRENT_ERROR.message != NULL) {
     free(CURRENT_ERROR.message);
   }
@@ -498,7 +499,7 @@ void error_clear() {
   CURRENT_ERROR.native_code = 0;
 }
 
-int32_t error_get_last_system() {
+int32_t error_get_last_system(void) {
 #ifdef _WINDOWS
   return (int32_t)GetLastError();
 #else
@@ -515,7 +516,7 @@ int32_t error_get_last_system() {
 #endif
 }
 
-int32_t error_get_last_net() {
+int32_t error_get_last_net(void) {
 #if defined(_WINDOWS)
   return WSAGetLastError();
 #elif defined(__OS2__)

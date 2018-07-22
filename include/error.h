@@ -57,17 +57,17 @@ typedef enum {
 } ErrorIO;
 
 ErrorIO	error_get_io_from_system(int32_t err_code);
-ErrorIO	error_get_last_io();
-const char *error_code_to_string();
-const char *error_get_message();
-int32_t error_get_code();
-int32_t error_get_native_code();
+ErrorIO	error_get_last_io(void);
+const char *error_code_to_string(ErrorIO error);
+const char *error_get_message(void);
+int32_t error_get_code(void);
+int32_t error_get_native_code(void);
 void error_set_error(int32_t code, int32_t native_code, const char *message);
 void error_set_code(int32_t code);
 void error_set_native_code(int32_t native_code);
 void error_set_message(const char *message);
-void error_clear();
-int32_t error_get_last_system();
-int32_t error_get_last_net();
+void error_clear(void);
+int32_t error_get_last_system(void);
+int32_t error_get_last_net(void);
 void error_set_last_system(int32_t code);
 void error_set_last_net(int32_t code);

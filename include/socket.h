@@ -65,8 +65,8 @@ typedef enum {
 /* Socket opaque structure. */
 typedef struct Socket Socket;
 
-bool socket_init_once();
-void socket_close_once();
+bool socket_init_once(void);
+void socket_close_once(void);
 
 Socket *socket_new_from_fd(int32_t fd);
 Socket *socket_new(SocketFamily family, SocketType type, SocketProtocol protocol);
